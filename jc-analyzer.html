@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JumpCloud Log Analyzer</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --dark: #343a40;
+            --light: #f8f9fa;
+            --border: #dee2e6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: var(--dark);
+            background-color: #e9ecef;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--light);
+            padding-bottom: 20px;
+        }
+
+        h1 { margin: 0; color: var(--primary); }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: var(--light);
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 30px;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background: #f0f7ff;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"], select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            flex-grow: 1;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--light);
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover { background-color: #f1f3f5; cursor: pointer; }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+
+        .hidden { display: none; }
+
+        .details-row td {
+            background: #f8f9fa;
+            padding: 20px;
+        }
+
+        pre {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 0;
+            font-size: 13px;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>JC Log Analyzer</h1>
+        <input type="file" id="fileInput" class="hidden" accept=".json">
+        <button class="btn" onclick="document.getElementById('fileInput').click()">Open JSON File</button>
+    </header>
+
+    <div id="dropZone" class="drop-zone">
+        <strong>Drag and drop your JumpCloud activity log (JSON) here</strong>
+        <p>or click the button above to select a file</p>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span id="statTotal" class="stat-value">0</span>
+                <span class="stat-label">Total Events</span>
+            </div>
+            <div class="stat-card">
+                <span id="statSuccess" class="stat-value" style="color: var(--success)">0%</span>
+                <span class="stat-label">Success Rate</span>
+            </div>
+            <div class="stat-card">
+                <span id="statFailures" class="stat-value" style="color: var(--danger)">0</span>
+                <span class="stat-label">Failures</span>
+            </div>
+            <div class="stat-card">
+                <span id="statUniqueUsers" class="stat-value">0</span>
+                <span class="stat-label">Unique Users</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Search by user, IP, or event type...">
+            <select id="filterSuccess">
+                <option value="all">All Results</option>
+                <option value="success">Success Only</option>
+                <option value="failure">Failure Only</option>
+            </select>
+            <select id="filterService">
+                <option value="all">All Services</option>
+            </select>
+        </div>
+
+        <div class="table-container">
+            <table id="logTable">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Event Type</th>
+                        <th>Service</th>
+                        <th>Client IP</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody"></tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <button class="btn" id="prevPage" disabled>Previous</button>
+            <span id="pageInfo">Page 1 of 1</span>
+            <button class="btn" id="nextPage" disabled>Next</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allLogs = [];
+    let filteredLogs = [];
+    let currentPage = 1;
+    const pageSize = 50;
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const dashboard = document.getElementById('dashboard');
+    const logBody = document.getElementById('logBody');
+    const searchInput = document.getElementById('searchInput');
+    const filterSuccess = document.getElementById('filterSuccess');
+    const filterService = document.getElementById('filterService');
+
+    // File Handling
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const json = JSON.parse(e.target.result);
+                allLogs = Array.isArray(json) ? json : [json];
+                processLogs();
+                dropZone.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+            } catch (err) {
+                alert('Error parsing JSON file. Please ensure it is a valid JumpCloud activity log.');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function processLogs() {
+        // Populate service filter
+        const services = [...new Set(allLogs.map(l => l.service).filter(Boolean))].sort();
+        filterService.innerHTML = '<option value="all">All Services</option>' + 
+            services.map(s => `<option value="${s}">${s}</option>`).join('');
+
+        updateStats(allLogs);
+        applyFilters();
+    }
+
+    function updateStats(data) {
+        const total = data.length;
+        const successes = data.filter(l => l.success === true || l.success === null && l.error_code === 0).length;
+        const failures = total - successes;
+        const users = new Set(data.map(l => l.initiated_by?.username || l.username).filter(Boolean));
+
+        document.getElementById('statTotal').textContent = total.toLocaleString();
+        document.getElementById('statSuccess').textContent = total ? Math.round((successes / total) * 100) + '%' : '0%';
+        document.getElementById('statFailures').textContent = failures.toLocaleString();
+        document.getElementById('statUniqueUsers').textContent = users.size.toLocaleString();
+    }
+
+    function applyFilters() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const successFilter = filterSuccess.value;
+        const serviceFilter = filterService.value;
+
+        filteredLogs = allLogs.filter(log => {
+            const user = (log.initiated_by?.username || log.username || '').toLowerCase();
+            const ip = (log.client_ip || '').toLowerCase();
+            const type = (log.event_type || '').toLowerCase();
+            const service = (log.service || '').toLowerCase();
+            const isSuccess = log.success === true || (log.success === null && log.error_code === 0);
+
+            const matchesSearch = user.includes(searchTerm) || ip.includes(searchTerm) || type.includes(searchTerm);
+            const matchesSuccess = successFilter === 'all' || 
+                (successFilter === 'success' && isSuccess) || 
+                (successFilter === 'failure' && !isSuccess);
+            const matchesService = serviceFilter === 'all' || service === serviceFilter.toLowerCase();
+
+            return matchesSearch && matchesSuccess && matchesService;
+        });
+
+        currentPage = 1;
+        renderTable();
+    }
+
+    function renderTable() {
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        const pageData = filteredLogs.slice(start, end);
+
+        logBody.innerHTML = '';
+        pageData.forEach((log, index) => {
+            const isSuccess = log.success === true || (log.success === null && log.error_code === 0);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="white-space: nowrap">${new Date(log.timestamp).toLocaleString()}</td>
+                <td>${log.initiated_by?.username || log.username || '-'}</td>
+                <td>${log.event_type}</td>
+                <td>${log.service || '-'}</td>
+                <td>${log.client_ip || '-'}</td>
+                <td><span class="badge ${isSuccess ? 'badge-success' : 'badge-danger'}">${isSuccess ? 'Success' : 'Failure'}</span></td>
+            `;
+            row.onclick = () => toggleDetails(row, log);
+            logBody.appendChild(row);
+        });
+
+        // Update Pagination
+        const totalPages = Math.ceil(filteredLogs.length / pageSize) || 1;
+        document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage === totalPages;
+    }
+
+    function toggleDetails(row, log) {
+        const nextRow = row.nextElementSibling;
+        if (nextRow && nextRow.classList.contains('details-row')) {
+            nextRow.remove();
+        } else {
+            const detailsRow = document.createElement('tr');
+            detailsRow.classList.add('details-row');
+            detailsRow.innerHTML = `
+                <td colspan="6">
+                    <pre>${JSON.stringify(log, null, 2)}</pre>
+                </td>
+            `;
+            row.after(detailsRow);
+        }
+    }
+
+    // Event Listeners for Filters
+    searchInput.addEventListener('input', applyFilters);
+    filterSuccess.addEventListener('change', applyFilters);
+    filterService.addEventListener('change', applyFilters);
+
+    document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; renderTable(); } };
+    document.getElementById('nextPage').onclick = () => { if (currentPage * pageSize < filteredLogs.length) { currentPage++; renderTable(); } };
+
+</script>
+
+</body>
+</html>
