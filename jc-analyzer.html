@@ -171,11 +171,33 @@
         /* Controls & Table */
         .controls-bar {
             display: flex;
+            align-items: center;
             gap: 15px;
             margin-bottom: 30px;
             padding: 20px;
             background: var(--mts-light);
             border-radius: var(--radius-sm);
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding-left: 20px;
+            border-left: 1px solid var(--border);
+        }
+
+        .explanation-box {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid var(--mts-slate);
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .explanation-box strong {
+            color: var(--mts-dark);
         }
 
         input[type="text"], select {
@@ -322,9 +344,14 @@
             <select id="filterService">
                 <option value="all">All Services</option>
             </select>
-            <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="failureOnly"> Failure Only
-            </label>
+            <div class="toggle-group">
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; cursor: pointer;">
+                    <input type="checkbox" id="failureOnly"> Failure Only
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; cursor: pointer;">
+                    <input type="checkbox" id="basicMode" checked> Basic Mode
+                </label>
+            </div>
         </div>
 
         <div class="table-wrap">
@@ -373,6 +400,7 @@
     const searchInput = document.getElementById('searchInput');
     const filterService = document.getElementById('filterService');
     const failureOnly = document.getElementById('failureOnly');
+    const basicMode = document.getElementById('basicMode');
     const userSearch = document.getElementById('userSearch');
     const userList = document.getElementById('userList');
     const topUsersList = document.getElementById('topUsersList');
@@ -629,16 +657,83 @@
         `;
     }
 
+    function generatePlainEnglishExplanation(log) {
+        const initiator = getInitiator(log);
+        const impacted = getImpactedUser(log);
+        const event = log.event_type || 'unknown event';
+        const service = log.service || 'system';
+        const status = (log.success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined))) ? 'successfully' : 'unsuccessfully';
+        
+        // Context strings
+        const location = log.geoip ? ` in ${log.geoip.city}, ${log.geoip.region_name}` : '';
+        const device = log.useragent ? ` using ${log.useragent.name} on ${log.useragent.os}` : '';
+        const ipInfo = log.client_ip ? ` (IP: ${log.client_ip})` : '';
+        const context = `${location}${device}${ipInfo}`;
+
+        let description = '';
+
+        // Association Changes
+        if (event === 'association_change') {
+            const op = log.association?.op === 'add' ? 'added' : (log.association?.op === 'remove' ? 'removed' : 'modified');
+            const preposition = log.association?.op === 'add' ? 'to' : 'from';
+            const fromName = log.association?.connection?.from?.name || 'unknown resource';
+            const toName = log.association?.connection?.to?.name || 'unknown resource';
+            description = `<strong>${initiator}</strong> ${op} <strong>${toName}</strong> ${preposition} <strong>${fromName}</strong> ${status} via ${service}.`;
+        }
+        // Login Events
+        else if (event.includes('login') || event.includes('auth')) {
+            const method = log.auth_method || (log.auth_context?.auth_methods?.length ? log.auth_context.auth_methods[0].type : '');
+            const methodStr = method ? ` via ${method}` : '';
+            description = `<strong>${initiator}</strong> attempted to log in${methodStr}. The attempt was <strong>${status}</strong>.`;
+        }
+        // Password Changes
+        else if (event.includes('password_update')) {
+            description = `<strong>${initiator}</strong> updated the password for <strong>${impacted}</strong> ${status}.`;
+        }
+        // System Events
+        else if (event === 'system_check_in') {
+            description = `The system <strong>${log.system?.hostname || 'unknown'}</strong> checked in ${status}.`;
+        }
+        // Application Access
+        else if (event === 'application_access') {
+            const appName = log.application?.display_label || 'an application';
+            description = `<strong>${initiator}</strong> accessed <strong>${appName}</strong> ${status}.`;
+        }
+        // Default fallback
+        else {
+            description = `<strong>${initiator}</strong> performed a <strong>${event.replace(/_/g, ' ')}</strong> operation on <strong>${impacted !== '-' ? impacted : service}</strong> ${status}.`;
+        }
+
+        let fullMsg = description;
+        if (context) {
+            fullMsg += `<div style="margin-top: 8px; font-size: 13px; color: var(--mts-grey); font-weight: 400;">
+                Performed${context}
+            </div>`;
+        }
+        
+        if (log.error_message) {
+            fullMsg += `<div style="margin-top: 8px; color: #c62828; font-weight: 500;">Error: ${log.error_message}</div>`;
+        }
+
+        return fullMsg;
+    }
+
     function toggleDetails(row, log) {
         const nextRow = row.nextElementSibling;
         if (nextRow && nextRow.classList.contains('details-row')) {
             nextRow.remove();
         } else {
+            const isBasicMode = document.getElementById('basicMode').checked;
+            const content = isBasicMode ? 
+                `<div class="explanation-box">${generatePlainEnglishExplanation(log)}</div>` : 
+                `<pre>${JSON.stringify(log, null, 2)}</pre>`;
+            
             const detailsRow = document.createElement('tr');
             detailsRow.classList.add('details-row');
+            detailsRow.logData = log; // Store for instant switching
             detailsRow.innerHTML = `
-                <td colspan="6">
-                    <pre>${JSON.stringify(log, null, 2)}</pre>
+                <td colspan="7" style="background: white; padding: 20px;">
+                    ${content}
                 </td>
             `;
             row.after(detailsRow);
@@ -649,6 +744,16 @@
     searchInput.addEventListener('input', applyFilters);
     filterService.addEventListener('change', applyFilters);
     failureOnly.addEventListener('change', applyFilters);
+    
+    basicMode.addEventListener('change', () => {
+        document.querySelectorAll('.details-row').forEach(row => {
+            const log = row.logData;
+            const isBasicMode = basicMode.checked;
+            row.querySelector('td').innerHTML = isBasicMode ? 
+                `<div class="explanation-box">${generatePlainEnglishExplanation(log)}</div>` : 
+                `<pre>${JSON.stringify(log, null, 2)}</pre>`;
+        });
+    });
     
     userSearch.addEventListener('input', (e) => {
         const val = e.target.value;
