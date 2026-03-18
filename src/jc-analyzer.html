@@ -259,6 +259,66 @@
             margin-bottom: 40px;
         }
 
+        /* Investigation Hub & Presets */
+        .investigation-hub {
+            margin-top: 30px;
+            padding: 25px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+        }
+
+        .preset-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .preset-pill {
+            padding: 8px 18px;
+            border-radius: 980px;
+            background: var(--mts-light);
+            border: 1px solid var(--border);
+            color: var(--mts-slate);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preset-pill:hover {
+            background: #ebebef;
+            border-color: var(--mts-accent);
+        }
+
+        .preset-pill.active {
+            background: var(--mts-slate);
+            color: var(--white);
+            border-color: var(--mts-slate);
+        }
+
+        .active-filter-bar {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background: #e8f0fe;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #1967d2;
+        }
+
+        .clear-preset {
+            cursor: pointer;
+            font-weight: 700;
+            padding: 4px 8px;
+        }
+
         .back-btn {
             color: var(--white);
             text-decoration: none;
@@ -298,6 +358,22 @@
             <div class="drilldown-header">
                 <a href="#" class="back-btn" onclick="exitDrilldown()">← Back to Overview</a>
                 <h1 id="drilldownTitle" style="margin: 0; color: white;">User Activity</h1>
+                
+                <div class="investigation-hub">
+                    <h3 style="margin-top: 0; font-size: 18px; color: var(--mts-dark);">What are you looking for?</h3>
+                    <div class="preset-grid">
+                        <div class="preset-pill" onclick="setPreset('group_changes')">👥 Group Changes</div>
+                        <div class="preset-pill" onclick="setPreset('login_activity')">🔐 Login Activity</div>
+                        <div class="preset-pill" onclick="setPreset('password_updates')">🔑 Password Updates</div>
+                        <div class="preset-pill" onclick="setPreset('app_access')">🚀 App Access</div>
+                        <div class="preset-pill" onclick="setPreset('admin_actions')">🛠️ Admin Actions</div>
+                        <div class="preset-pill" onclick="setPreset('failures')">⚠️ Lockouts/Failures</div>
+                    </div>
+                    <div id="activePresetBar" class="active-filter-bar hidden">
+                        <span id="activePresetLabel">Showing: Group Changes</span>
+                        <span class="clear-preset" onclick="setPreset(null)">✕ Clear Filter</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -362,6 +438,7 @@
                         <th>Initiator</th>
                         <th>Impacted User</th>
                         <th>Event Type</th>
+                        <th>Resource</th>
                         <th>Service</th>
                         <th>IP</th>
                         <th>Status</th>
@@ -391,7 +468,37 @@
     let filteredLogs = [];
     let currentPage = 1;
     let selectedUser = null;
-    const pageSize = 100; // Increased for better performance with large logs
+    let currentPreset = null;
+    const pageSize = 100;
+
+    const presets = {
+        'group_changes': { label: 'Group Changes', filter: (l) => l.event_type === 'association_change' },
+        'login_activity': { label: 'Login Activity', filter: (l) => l.event_type?.includes('login') || l.event_type?.includes('auth') },
+        'password_updates': { label: 'Password Updates', filter: (l) => l.event_type?.includes('password_update') },
+        'app_access': { label: 'App Access', filter: (l) => l.event_type === 'sso_auth' || l.event_type === 'application_access' },
+        'admin_actions': { label: 'Admin Actions', filter: (l) => l.initiated_by?.type === 'admin' || l.initiated_by?.type === 'administrator' },
+        'failures': { label: 'Lockouts/Failures', filter: (l) => l.success === false }
+    };
+
+    function setPreset(key) {
+        currentPreset = key;
+        
+        // UI Updates
+        document.querySelectorAll('.preset-pill').forEach(pill => {
+            pill.classList.toggle('active', pill.innerText.includes(presets[key]?.label));
+        });
+        
+        const bar = document.getElementById('activePresetBar');
+        if (key) {
+            bar.classList.remove('hidden');
+            document.getElementById('activePresetLabel').innerText = `Showing: ${presets[key].label}`;
+        } else {
+            bar.classList.add('hidden');
+            document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+        }
+        
+        applyFilters();
+    }
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -485,6 +592,19 @@
         return '-';
     }
 
+    function getResource(log) {
+        if (!log) return '-';
+        if (log.application?.display_label) return String(log.application.display_label);
+        if (log.resource?.name) return String(log.resource.name);
+        if (log.system?.hostname) return String(log.system.hostname);
+        if (log.association?.connection) {
+            const conn = log.association.connection;
+            const target = conn.to?.type !== 'user' ? conn.to : (conn.from?.type !== 'user' ? conn.from : null);
+            if (target?.name) return String(target.name);
+        }
+        return '-';
+    }
+
     function processLogs() {
         // Ensure all logs are objects and have a basic structure
         allLogs = allLogs.filter(l => l && typeof l === 'object');
@@ -538,15 +658,25 @@
 
     function exitDrilldown() {
         selectedUser = null;
+        currentPreset = null; // Clear preset
         drilldownView.classList.add('hidden');
         analyticsSection.classList.remove('hidden');
         userSearch.value = '';
+        
+        // Reset preset UI
+        document.getElementById('activePresetBar').classList.add('hidden');
+        document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+        
         applyFilters();
     }
 
     function updateStats(data) {
         const total = data.length;
-        const successes = data.filter(l => l.success === true || (l.success === null && (l.error_code === 0 || l.error_code === undefined))).length;
+        const successes = data.filter(l => 
+            l.success === true || 
+            l.sso_token_success === true ||
+            (l.success === null && (l.error_code === 0 || l.error_code === undefined))
+        ).length;
         const failures = total - successes;
         const users = new Set();
         data.forEach(l => {
@@ -573,7 +703,7 @@
             const ip = String(log.client_ip || '').toLowerCase();
             const type = String(log.event_type || '').toLowerCase();
             const service = String(log.service || '').toLowerCase();
-            const isSuccess = log.success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
+            const isSuccess = log.success === true || log.sso_token_success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
 
             const matchesUser = !selectedUser || (initiator === selectedUser.toLowerCase() || impacted === selectedUser.toLowerCase());
             const matchesSearch = initiator.includes(searchTerm) || 
@@ -582,8 +712,11 @@
                                  type.includes(searchTerm);
             const matchesSuccess = !failOnly || !isSuccess;
             const matchesService = serviceFilter === 'all' || service === serviceFilter.toLowerCase();
+            
+            // Preset Logic
+            const matchesPreset = !currentPreset || presets[currentPreset].filter(log);
 
-            return matchesUser && matchesSearch && matchesSuccess && matchesService;
+            return matchesUser && matchesSearch && matchesSuccess && matchesService && matchesPreset;
         });
 
         currentPage = 1;
@@ -599,7 +732,7 @@
 
         logBody.innerHTML = '';
         pageData.forEach((log) => {
-            const isSuccess = log.success === true || (log.success === null && log.error_code === 0);
+            const isSuccess = log.success === true || log.sso_token_success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
             const row = document.createElement('tr');
 
             row.innerHTML = `
@@ -607,6 +740,7 @@
                 <td>${getInitiator(log)}</td>
                 <td style="font-weight: 500; color: var(--mts-slate);">${getImpactedUser(log)}</td>
                 <td>${log.event_type}</td>
+                <td style="font-weight: 600; color: var(--mts-slate);">${getResource(log)}</td>
                 <td>${log.service || '-'}</td>
                 <td>${log.client_ip || '-'}</td>
                 <td><span class="badge ${isSuccess ? 'badge-success' : 'badge-danger'}">${isSuccess ? 'Success' : 'Failure'}</span></td>
@@ -662,7 +796,8 @@
         const impacted = getImpactedUser(log);
         const event = log.event_type || 'unknown event';
         const service = log.service || 'system';
-        const status = (log.success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined))) ? 'successfully' : 'unsuccessfully';
+        const isSuccess = log.success === true || log.sso_token_success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
+        const status = isSuccess ? 'successfully' : 'unsuccessfully';
         
         // Context strings
         const location = log.geoip ? ` in ${log.geoip.city}, ${log.geoip.region_name}` : '';
@@ -695,7 +830,7 @@
             description = `The system <strong>${log.system?.hostname || 'unknown'}</strong> checked in ${status}.`;
         }
         // Application Access
-        else if (event === 'application_access') {
+        else if (event === 'application_access' || event === 'sso_auth') {
             const appName = log.application?.display_label || 'an application';
             description = `<strong>${initiator}</strong> accessed <strong>${appName}</strong> ${status}.`;
         }
@@ -732,7 +867,7 @@
             detailsRow.classList.add('details-row');
             detailsRow.logData = log; // Store for instant switching
             detailsRow.innerHTML = `
-                <td colspan="7" style="background: white; padding: 20px;">
+                <td colspan="8" style="background: white; padding: 20px;">
                     ${content}
                 </td>
             `;
