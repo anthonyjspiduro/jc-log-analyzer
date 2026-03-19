@@ -469,6 +469,10 @@
                         <div class="preset-pill" onclick="setPreset('failures')">⚠️ Lockouts/Failures</div>
                     </div>
                 </div>
+
+                <div id="userQuickStats" style="margin-top: 40px; padding: 30px; background: rgba(255,255,255,0.05); border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.1);">
+                    <!-- Stats will be injected here -->
+                </div>
             </div>
         </div>
 
@@ -509,13 +513,13 @@
                     <div id="topLocationsList"></div>
                 </div>
                 <div class="analytics-card">
-                    <h3>User Insights</h3>
+                    <h3>User Search</h3>
                     <div style="margin-bottom: 20px;">
                         <input type="text" id="userSearch" placeholder="Search and select a user..." list="userList">
                         <datalist id="userList"></datalist>
                     </div>
-                    <div id="userQuickStats" style="color: var(--mts-grey); font-size: 14px;">
-                        Select a user to analyze resource interactions and activity types.
+                    <div style="color: var(--mts-grey); font-size: 14px;">
+                        Enter a username to dive into their specific activity and location history.
                     </div>
                 </div>
             </div>
@@ -964,33 +968,54 @@
     function updateUserQuickStats() {
         const actionTypes = {};
         const resources = new Set();
+        const locations = {};
         
         filteredLogs.forEach(log => {
             actionTypes[log.event_type] = (actionTypes[log.event_type] || 0) + 1;
             if (log.resource?.name) resources.add(`${log.resource.type}: ${log.resource.name}`);
             else if (log.application?.display_label) resources.add(`app: ${log.application.display_label}`);
             else if (log.system?.hostname) resources.add(`system: ${log.system.hostname}`);
+
+            if (log.geoip) {
+                const loc = `${log.geoip.city || 'Unknown City'}, ${log.geoip.country_code || '??'}`;
+                locations[loc] = (locations[loc] || 0) + 1;
+            }
         });
 
         const sortedActions = Object.entries(actionTypes).sort((a, b) => b[1] - a[1]);
+        const sortedLocs = Object.entries(locations).sort((a, b) => b[1] - a[1]);
         
         document.getElementById('userQuickStats').innerHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px;">
                 <div>
-                    <h4>Action Types</h4>
-                    <ul class="top-users-list">
+                    <h4 style="margin-top:0; color: rgba(255,255,255,0.6); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">Action Types</h4>
+                    <div style="margin-top: 15px;">
                         ${sortedActions.slice(0, 5).map(([type, count]) => `
-                            <li class="top-user-item"><span>${type}</span> <strong>${count}</strong></li>
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; color: white;">
+                                <span>${type}</span> <strong>${count}</strong>
+                            </div>
                         `).join('')}
-                    </ul>
+                    </div>
                 </div>
                 <div>
-                    <h4>Resources Interacted</h4>
-                    <ul class="top-users-list">
-                        ${[...resources].slice(0, 5).map(res => `
-                            <li class="top-user-item"><span>${res}</span></li>
+                    <h4 style="margin-top:0; color: rgba(255,255,255,0.6); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">Top Locations</h4>
+                    <div style="margin-top: 15px;">
+                        ${sortedLocs.slice(0, 5).map(([loc, count]) => `
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; color: white;">
+                                <span>${loc}</span> <strong>${count}</strong>
+                            </div>
                         `).join('')}
-                    </ul>
+                    </div>
+                </div>
+                <div>
+                    <h4 style="margin-top:0; color: rgba(255,255,255,0.6); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">Resources Interacted</h4>
+                    <div style="margin-top: 15px;">
+                        ${[...resources].slice(0, 5).map(res => `
+                            <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; color: white;">
+                                <span>${res}</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
         `;

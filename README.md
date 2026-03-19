@@ -9,6 +9,7 @@ Access the analyzer directly in your browser:
 
 -   **Activity Trend Chart**: Visualizes event volume and failure rates over the last 24 active hours to instantly spot spikes or system anomalies.
 -   **Geolocation Summary**: Identifies top cities and countries of origin for all activity to detect anomalous geographic access.
+-   **Deep-Dive Analytics**: Select a specific user to view a dedicated investigation dashboard featuring their top locations, action types, and resource interaction history.
 -   **Global Discovery (Quick Filters)**: Instantly filter the entire log file or specific users with preset "Plain English" searches:
     -   👥 **Group Changes**: Track additions/removals from groups and apps.
     -   🔐 **Login Activity**: Monitor all sign-in attempts and methods.
