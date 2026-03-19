@@ -16,6 +16,7 @@ Transform the log analyzer from a raw data viewer into a guided investigation to
 | **Login Activity** | `event_type: *login*` OR `*auth*` | Shows all successful and failed sign-in attempts. |
 | **Password Updates** | `event_type: *password_update*` | Tracks when the user changed or reset their password. |
 | **App Access** | `event_type: sso_auth` | Lists every SSO application the user launched. |
+| **Provisioning** | `event_type: *provision*` | Shows automated user access changes in connected apps (SCIM). |
 | **Admin Actions** | `initiated_by.type: admin` (as initiator) | If the subject is an admin, show actions they performed on others. |
 | **Lockouts/Failures** | `success: false` | Focuses purely on where the user ran into trouble. |
 

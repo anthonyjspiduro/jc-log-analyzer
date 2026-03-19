@@ -57,9 +57,9 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 98%;
             margin: 0 auto;
-            padding: 80px 20px;
+            padding: 40px 20px;
         }
 
         h1 {
@@ -211,7 +211,7 @@
 
         .table-wrap {
             width: 100%;
-            overflow-x: hidden;
+            overflow-x: auto;
             border-top: 1px solid var(--border);
         }
 
@@ -219,6 +219,7 @@
             width: 100%; 
             border-collapse: collapse; 
             table-layout: auto;
+            min-width: 1400px;
         }
 
         th {
@@ -236,7 +237,7 @@
             padding: 12px 16px; 
             font-size: 13px; 
             border-bottom: 1px solid var(--mts-light);
-            max-width: 200px;
+            max-width: 400px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -296,12 +297,34 @@
         }
 
         /* Investigation Hub & Presets */
-        .investigation-hub {
-            margin-top: 30px;
-            padding: 25px;
-            background: var(--white);
-            border: 1px solid var(--border);
+        .dashboard-hero {
+            background: var(--mts-slate);
+            color: var(--white);
+            padding: 60px;
             border-radius: var(--radius-lg);
+            margin-bottom: 40px;
+        }
+
+        .dashboard-hero h1 {
+            color: var(--white);
+            margin-top: 0;
+            margin-bottom: 30px;
+        }
+
+        .investigation-hub {
+            padding: 30px;
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .investigation-hub h3 {
+            font-size: 14px;
+            color: var(--mts-grey);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+            margin-top: 0;
         }
 
         .preset-grid {
@@ -390,24 +413,41 @@
     </div>
 
     <div id="dashboard" class="hidden">
+        <div class="dashboard-hero">
+            <h1 style="margin-bottom: 40px; font-size: 56px;">Global Log Analysis</h1>
+            <div class="investigation-hub">
+                <h3>Global Discovery: What are you looking for?</h3>
+                <div class="preset-grid">
+                    <div class="preset-pill" onclick="setPreset('group_changes')">👥 Group Changes</div>
+                    <div class="preset-pill" onclick="setPreset('login_activity')">🔐 Login Activity</div>
+                    <div class="preset-pill" onclick="setPreset('password_updates')">🔑 Password Updates</div>
+                    <div class="preset-pill" onclick="setPreset('app_access')">🚀 App Access</div>
+                    <div class="preset-pill" onclick="setPreset('provisioning')">🔄 Provisioning</div>
+                    <div class="preset-pill" onclick="setPreset('admin_actions')">🛠️ Admin Actions</div>
+                    <div class="preset-pill" onclick="setPreset('failures')">⚠️ Lockouts/Failures</div>
+                </div>
+                <div id="activePresetBar" class="active-filter-bar hidden">
+                    <span id="activePresetLabel">Showing: Group Changes</span>
+                    <span class="clear-preset" onclick="setPreset(null)">✕ Clear Filter</span>
+                </div>
+            </div>
+        </div>
+
         <div id="drilldownView" class="hidden">
-            <div class="drilldown-header">
+            <div class="drilldown-header" style="padding-bottom: 30px; margin-bottom: 30px;">
                 <a href="#" class="back-btn" onclick="exitDrilldown()">← Back to Overview</a>
                 <h1 id="drilldownTitle" style="margin: 0; color: white;">User Activity</h1>
                 
-                <div class="investigation-hub">
-                    <h3 style="margin-top: 0; font-size: 18px; color: var(--mts-dark);">What are you looking for?</h3>
+                <div class="investigation-hub" style="margin-top: 40px;">
+                    <h3>What are you looking for?</h3>
                     <div class="preset-grid">
                         <div class="preset-pill" onclick="setPreset('group_changes')">👥 Group Changes</div>
                         <div class="preset-pill" onclick="setPreset('login_activity')">🔐 Login Activity</div>
                         <div class="preset-pill" onclick="setPreset('password_updates')">🔑 Password Updates</div>
                         <div class="preset-pill" onclick="setPreset('app_access')">🚀 App Access</div>
+                        <div class="preset-pill" onclick="setPreset('provisioning')">🔄 Provisioning</div>
                         <div class="preset-pill" onclick="setPreset('admin_actions')">🛠️ Admin Actions</div>
                         <div class="preset-pill" onclick="setPreset('failures')">⚠️ Lockouts/Failures</div>
-                    </div>
-                    <div id="activePresetBar" class="active-filter-bar hidden">
-                        <span id="activePresetLabel">Showing: Group Changes</span>
-                        <span class="clear-preset" onclick="setPreset(null)">✕ Clear Filter</span>
                     </div>
                 </div>
             </div>
@@ -457,6 +497,9 @@
                 <option value="all">All Services</option>
             </select>
             <div class="toggle-group">
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; cursor: pointer;">
+                    <input type="checkbox" id="hideService" checked> Hide Service Accounts
+                </label>
                 <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; cursor: pointer;">
                     <input type="checkbox" id="failureOnly"> Failure Only
                 </label>
@@ -510,6 +553,7 @@
         'login_activity': { label: 'Login Activity', filter: (l) => l.event_type?.includes('login') || l.event_type?.includes('auth') },
         'password_updates': { label: 'Password Updates', filter: (l) => l.event_type?.includes('password_update') },
         'app_access': { label: 'App Access', filter: (l) => l.event_type === 'sso_auth' || l.event_type === 'application_access' },
+        'provisioning': { label: 'Provisioning', filter: (l) => l.event_type?.includes('provision') || l.event_type?.includes('deprovision') },
         'admin_actions': { label: 'Admin Actions', filter: (l) => l.initiated_by?.type === 'admin' || l.initiated_by?.type === 'administrator' },
         'failures': { label: 'Lockouts/Failures', filter: (l) => l.success === false }
     };
@@ -541,6 +585,7 @@
     const searchInput = document.getElementById('searchInput');
     const filterService = document.getElementById('filterService');
     const failureOnly = document.getElementById('failureOnly');
+    const hideService = document.getElementById('hideService');
     const basicMode = document.getElementById('basicMode');
     const userSearch = document.getElementById('userSearch');
     const userList = document.getElementById('userList');
@@ -622,14 +667,19 @@
             const target = conn.to?.type === 'user' ? conn.to : (conn.from?.type === 'user' ? conn.from : null);
             if (target?.name) return String(target.name);
         }
-        if (log.resource?.type === 'user' && log.resource.name) return String(log.resource.name);
+        if (log.resource?.type === 'user') {
+            if (log.resource.username) return String(log.resource.username);
+            if (log.resource.name) return String(log.resource.name);
+        }
         return '-';
     }
 
     function getResource(log) {
         if (!log) return '-';
         if (log.application?.display_label) return String(log.application.display_label);
+        if (log.application?.name) return String(log.application.name);
         if (log.resource?.name) return String(log.resource.name);
+        if (log.resource?.hostname) return String(log.resource.hostname);
         if (log.system?.hostname) return String(log.system.hostname);
         if (log.association?.connection) {
             const conn = log.association.connection;
@@ -687,20 +737,18 @@
         document.getElementById('drilldownTitle').textContent = user;
         drilldownView.classList.remove('hidden');
         analyticsSection.classList.add('hidden');
+        document.querySelector('.dashboard-hero').classList.add('hidden');
+        document.getElementById('statsSection').classList.add('hidden');
         applyFilters();
     }
 
     function exitDrilldown() {
         selectedUser = null;
-        currentPreset = null; // Clear preset
         drilldownView.classList.add('hidden');
         analyticsSection.classList.remove('hidden');
+        document.querySelector('.dashboard-hero').classList.remove('hidden');
+        document.getElementById('statsSection').classList.remove('hidden');
         userSearch.value = '';
-        
-        // Reset preset UI
-        document.getElementById('activePresetBar').classList.add('hidden');
-        document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
-        
         applyFilters();
     }
 
@@ -730,10 +778,24 @@
         const searchTerm = (searchInput.value || '').toLowerCase();
         const serviceFilter = filterService.value;
         const failOnly = failureOnly.checked;
+        const hideSvc = hideService.checked;
+        
+        const serviceAccounts = [
+            'svc-ldap-bind', 
+            'svc-pan-dev-bind', 
+            'svc-paloalto-bind', 
+            'svc-pan-us-bind'
+        ];
 
         filteredLogs = allLogs.filter(log => {
             const initiator = getInitiator(log).toLowerCase();
             const impacted = getImpactedUser(log).toLowerCase();
+
+            // Filter out service accounts if enabled
+            if (hideSvc && (serviceAccounts.includes(initiator) || serviceAccounts.includes(impacted))) {
+                return false;
+            }
+
             const ip = String(log.client_ip || '').toLowerCase();
             const type = String(log.event_type || '').toLowerCase();
             const service = String(log.service || '').toLowerCase();
@@ -868,6 +930,12 @@
             const appName = log.application?.display_label || 'an application';
             description = `<strong>${initiator}</strong> accessed <strong>${appName}</strong> ${status}.`;
         }
+        // Provisioning Events
+        else if (event.includes('provision')) {
+            const appName = getResource(log);
+            const action = event.includes('deprovision') ? 'deprovisioned' : (event.includes('update') ? 'updated' : 'provisioned');
+            description = `<strong>${impacted}</strong> was <strong>${action}</strong> in <strong>${appName}</strong> via ${service} ${status}.`;
+        }
         // Default fallback
         else {
             description = `<strong>${initiator}</strong> performed a <strong>${event.replace(/_/g, ' ')}</strong> operation on <strong>${impacted !== '-' ? impacted : service}</strong> ${status}.`;
@@ -913,6 +981,7 @@
     searchInput.addEventListener('input', applyFilters);
     filterService.addEventListener('change', applyFilters);
     failureOnly.addEventListener('change', applyFilters);
+    hideService.addEventListener('change', applyFilters);
     
     basicMode.addEventListener('change', () => {
         document.querySelectorAll('.details-row').forEach(row => {
