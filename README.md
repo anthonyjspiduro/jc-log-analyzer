@@ -5,23 +5,24 @@ A secure, local-only web application for analyzing JumpCloud Activity Logs. This
 ## 🌐 Live Version
 Access the analyzer directly in your browser:  
 **[Open JumpCloud Log Analyzer](https://anthonyjspiduro.github.io/jc-log-analyzer/src/jc-analyzer.html)**
-
 ## 🚀 Features
 
+-   **Activity Trend Chart**: Visualizes event volume and failure rates over the last 24 active hours to instantly spot spikes or system anomalies.
+-   **Geolocation Summary**: Identifies top cities and countries of origin for all activity to detect anomalous geographic access.
+-   **Global Discovery (Quick Filters)**: Instantly filter the entire log file or specific users with preset "Plain English" searches:
+    -   👥 **Group Changes**: Track additions/removals from groups and apps.
+    -   🔐 **Login Activity**: Monitor all sign-in attempts and methods.
+    -   🚀 **App Access**: See exactly which SSO applications were launched.
+    -   🔄 **Provisioning**: Track automated user access changes in connected apps (SCIM).
+    -   ⚠️ **Lockouts/Failures**: Quickly identify why a user is having trouble.
+-   **Smart Noise Reduction**: Toggle "Hide Service Accounts" to automatically filter out high-volume LDAP bind noise (`svc-ldap-bind`, etc.).
+-   **Ultra-Wide Layout**: Optimized for 4K and large displays to view long log events without truncation.
 -   **Two Viewing Modes**:
     -   **Basic Mode (Default)**: Translates complex JSON log data into plain English sentences with location, device, and IP context.
     -   **Advanced Mode**: Shows the raw JSON structure for deep technical investigation.
--   **Guided Analysis (Investigation Hub)**: Select a user to unlock preset "Plain English" searches:
-    -   👥 **Group Changes**: Track additions/removals from groups and apps.
-    -   🔐 **Login Activity**: Monitor all sign-in attempts and methods.
-    -   🚀 **App Access**: See exactly which SSO applications a user launched.
-    -   ⚠️ **Lockouts/Failures**: Quickly identify why a user is having trouble.
--   **Smart Success Detection**: Correctly identifies successes in complex SSO events (`sso_auth`).
 -   **Local & Secure**: 100% client-side. No server-side processing or data storage.
 
 ## 📁 Project Structure
-
--   `src/`: Contains the core application logic and assets.
     -   `jc-analyzer.html`: The main web application.
     -   `extract_keys.py`: A utility script to identify all unique fields in a log file.
 -   `docs/`: Documentation on log fields and project plans.
