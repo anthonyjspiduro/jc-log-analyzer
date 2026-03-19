@@ -2,6 +2,10 @@
 
 A secure, local-only web application for analyzing JumpCloud Activity Logs. This tool parses JSON or NDJSON log files entirely in your browser—no data ever leaves your machine.
 
+## 🌐 Live Version
+Access the analyzer directly in your browser:  
+**[Open JumpCloud Log Analyzer](https://anthonyjspiduro.github.io/jc-log-analyzer/src/jc-analyzer.html)**
+
 ## 🚀 Features
 
 -   **Two Viewing Modes**:
@@ -26,10 +30,11 @@ A secure, local-only web application for analyzing JumpCloud Activity Logs. This
 ## 🛠️ Usage
 
 ### Web Analyzer
-1.  Open `src/jc-analyzer.html` in any modern web browser.
-2.  Drag and drop your JumpCloud Activity Log (JSON or NDJSON) into the drop zone.
-3.  Use the "Top Users" list or search bar to find a subject.
-4.  Click any row to see the "Plain English" explanation of the event.
+1.  **Live**: [Open the JumpCloud Log Analyzer](https://anthonyjspiduro.github.io/jc-log-analyzer/src/jc-analyzer.html) directly in your browser.
+2.  **Local**: Open `src/jc-analyzer.html` from this repository in any modern web browser.
+3.  Drag and drop your JumpCloud Activity Log (JSON or NDJSON) into the drop zone.
+4.  Use the "Top Users" list or search bar to find a subject.
+5.  Click any row to see the "Plain English" explanation of the event.
 
 ### Key Extractor (CLI)
 If you need to see every unique field present in a large log file:
