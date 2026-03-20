@@ -583,6 +583,23 @@
     let activityChart = null;
     const pageSize = 100;
 
+    function isLogSuccess(log) {
+        if (!log) return true;
+        
+        // Explicit failure markers
+        if (log.success === false) return false;
+        if (log.sso_token_success === false) return false;
+        if (log.error_message && log.error_message !== "null") return false;
+        if (log.error_code && log.error_code !== 0) return false;
+        
+        // Explicit success markers
+        if (log.success === true) return true;
+        if (log.sso_token_success === true) return true;
+        
+        // Fallback: If no error is indicated, assume success (common for check-ins/searches)
+        return true;
+    }
+
     const presets = {
         'group_changes': { label: 'Group Changes', filter: (l) => l.event_type === 'association_change' },
         'login_activity': { label: 'Login Activity', filter: (l) => l.event_type?.includes('login') || l.event_type?.includes('auth') },
@@ -689,6 +706,70 @@
         reader.readAsText(file);
     }
 
+    function isLogSuccess(log) {
+        if (!log) return false;
+        
+        // If success is explicitly true, it's a success
+        if (log.success === true) return true;
+        
+        // If sso_token_success is explicitly false, it's a failure
+        if (log.sso_token_success === false) return false;
+        
+        // If there's an error message, it's a failure
+        if (log.error_message && log.error_message !== 'none') return false;
+        
+        // If success is explicitly false, it's a failure
+        if (log.success === false) return false;
+
+        // If success is null or missing, check error codes
+        if (log.success === null || log.success === undefined) {
+            // Some events use error_code 0 for success
+            if (log.error_code === 0 || log.error_code === undefined) {
+                // Final check: if it has an SSO token success, use that
+                if (log.sso_token_success === true) return true;
+                
+                // Fallback for directory/system events that don't use the success field
+                return true; 
+            }
+            return false;
+        }
+
+        return false;
+    }
+
+    function checkSuccess(log) {
+        if (!log) return false;
+        
+        // Explicitly unsuccessful tokens
+        if (log.sso_token_success === false) return false;
+        
+        // Explicitly successful tokens or success boolean
+        if (log.success === true || log.sso_token_success === true) return true;
+        
+        // If there is an error message, it's a failure
+        if (log.error_message && log.error_message !== 'none' && log.error_message !== '') return false;
+        
+        // If success is null/missing, check error code
+        if (log.success === null || log.success === undefined) {
+            return (log.error_code === 0 || log.error_code === undefined);
+        }
+        
+        return log.success === true;
+    }
+
+    function isLogSuccess(log) {
+        if (log.success === false) return false;
+        if (log.sso_token_success === false) return false;
+        if (log.error_message && log.error_message.length > 0) return false;
+        if (log.error_code !== undefined && log.error_code !== 0 && log.error_code !== null) return false;
+        
+        // If success is explicitly true or sso_token_success is true
+        if (log.success === true || log.sso_token_success === true) return true;
+        
+        // Fallback for events that don't have success fields (like ldap searches)
+        return true;
+    }
+
     function getInitiator(log) {
         if (!log) return 'System';
         return String(log.initiated_by?.username || log.initiated_by?.email || log.jc_initiated_by_email || 'System');
@@ -722,6 +803,19 @@
             if (target?.name) return String(target.name);
         }
         return '-';
+    }
+
+    function isLogSuccess(log) {
+        if (log.success === false) return false;
+        if (log.sso_token_success === false) return false;
+        if (log.error_code !== undefined && log.error_code !== 0 && log.error_code !== null) return false;
+        if (log.error_message && log.error_message.trim() !== "") return false;
+        
+        // Explicitly true cases
+        if (log.success === true || log.sso_token_success === true) return true;
+        
+        // If success is null/undefined but no error is present, assume success for noise reduction
+        return true;
     }
 
     function processLogs() {
@@ -796,7 +890,7 @@
             const key = date.toLocaleDateString() + ' ' + date.getHours() + ':00';
             if (!timeGroups[key]) timeGroups[key] = { total: 0, fail: 0 };
             
-            const isSuccess = log.success === true || log.sso_token_success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
+            const isSuccess = isLogSuccess(log);
             timeGroups[key].total++;
             if (!isSuccess) timeGroups[key].fail++;
         });
@@ -867,11 +961,7 @@
 
     function updateStats(data) {
         const total = data.length;
-        const successes = data.filter(l => 
-            l.success === true || 
-            l.sso_token_success === true ||
-            (l.success === null && (l.error_code === 0 || l.error_code === undefined))
-        ).length;
+        const successes = data.filter(l => isLogSuccess(l)).length;
         const failures = total - successes;
         const users = new Set();
         data.forEach(l => {
@@ -912,7 +1002,7 @@
             const ip = String(log.client_ip || '').toLowerCase();
             const type = String(log.event_type || '').toLowerCase();
             const service = String(log.service || '').toLowerCase();
-            const isSuccess = log.success === true || log.sso_token_success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
+            const isSuccess = isLogSuccess(log);
 
             const matchesUser = !selectedUser || (initiator === selectedUser.toLowerCase() || impacted === selectedUser.toLowerCase());
             const matchesSearch = initiator.includes(searchTerm) || 
@@ -941,7 +1031,7 @@
 
         logBody.innerHTML = '';
         pageData.forEach((log) => {
-            const isSuccess = log.success === true || log.sso_token_success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
+            const isSuccess = isLogSuccess(log);
             const row = document.createElement('tr');
 
             row.innerHTML = `
@@ -1026,7 +1116,7 @@
         const impacted = getImpactedUser(log);
         const event = log.event_type || 'unknown event';
         const service = log.service || 'system';
-        const isSuccess = log.success === true || log.sso_token_success === true || (log.success === null && (log.error_code === 0 || log.error_code === undefined));
+        const isSuccess = isLogSuccess(log);
         const status = isSuccess ? 'successfully' : 'unsuccessfully';
         
         // Context strings
